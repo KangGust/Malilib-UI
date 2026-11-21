@@ -17,14 +17,9 @@ dependencies {
 	minecraft("com.mojang:minecraft:${providers.gradleProperty("minecraft_version").get()}")
 	implementation("net.fabricmc:fabric-loader:${providers.gradleProperty("loader_version").get()}")
 
-	compileOnly(files(
-		"${projectDir}/libs/malilib-fabric-26.3-0.30.2.jar",
-		"${projectDir}/libs/litematica-fabric-26.3-0.29.1.jar",
-		"${projectDir}/libs/minihud-fabric-26.3-0.41.2.jar",
-		"${projectDir}/libs/tweakeroo-fabric-26.3-0.30.1.jar",
-		"${projectDir}/libs/modmenu-21.0.0.jar",
-		"${projectDir}/libs/Searchables-fabric-26.3-1.0.3.jar",
-	))
+	// libs/ 下的 jar 由 scripts/fetch_deps.py 或本地手工提供；不存在的文件会被忽略
+	val libJars = file("libs").listFiles { f -> f.name.endsWith(".jar") } ?: emptyArray()
+	compileOnly(files(libJars))
 }
 
 tasks.processResources {
