@@ -119,4 +119,4 @@ libs/
 - 界面灵感与协议基础：[malilib](https://github.com/maruohon/malilib)（masa 系列）
 - 图标：[Tabler Icons](https://github.com/tabler/tabler-icons)（MIT）
 - 作者：**KangGust**
-- 许可：**AGPL-3.0**
+- 许可：**MIT**（见 [LICENSE](LICENSE)）

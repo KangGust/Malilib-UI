@@ -7,7 +7,7 @@
 	"authors": [
 		"KangGust"
 	],
-	"license": "AGPL-3.0",
+	"license": "MIT",
 	"icon": "assets/malilib-ui/icon.png",
 	"environment": "client",
 	"entrypoints": {
