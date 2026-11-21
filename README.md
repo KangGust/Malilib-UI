@@ -96,10 +96,6 @@ libs/
 
 产物：`build/libs/malilib-ui-<version>.jar`
 
-### 版本号规则
-
-`aa.bb.cc+mc26.3` —— `aa` 大版本、`bb` 新功能、`cc` 修复/调整。
-
 ---
 
 ## 配置文件
