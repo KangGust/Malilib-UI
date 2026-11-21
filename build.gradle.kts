@@ -17,7 +17,7 @@ dependencies {
 	minecraft("com.mojang:minecraft:${providers.gradleProperty("minecraft_version").get()}")
 	implementation("net.fabricmc:fabric-loader:${providers.gradleProperty("loader_version").get()}")
 
-	// libs/ 下的 jar 由 scripts/fetch_deps.py 或本地手工提供；不存在的文件会被忽略
+	// libs/ 下的 jar 由 CI 工作流自动下载，或本地手工放入；不存在的文件会被忽略
 	val libJars = file("libs").listFiles { f -> f.name.endsWith(".jar") } ?: emptyArray()
 	compileOnly(files(libJars))
 }

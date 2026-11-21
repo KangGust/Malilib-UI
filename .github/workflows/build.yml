@@ -27,7 +27,33 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Fetch compile dependencies
-        run: python3 scripts/fetch_deps.py
+        run: |
+          set -euo pipefail
+          mkdir -p libs
+
+          fetch() {
+            local slug="$1" game_ver="$2" prefix="$3"
+            if ls libs/"$prefix"*.jar >/dev/null 2>&1; then
+              echo "skip $slug (already present)"
+              return 0
+            fi
+            local url
+            url=$(curl -s "https://api.modrinth.com/v2/project/$slug/version" \
+              | jq -r --arg gv "$game_ver" '
+                  [ .[] | select(.game_versions | index($gv)) ]
+                  | sort_by(.date_published) | last | .files[] | select(.primary) | .url // empty
+                ')
+            if [ -z "$url" ]; then
+              echo "warn: $slug has no version for $game_ver"
+              return 0
+            fi
+            echo "fetch $slug -> $url"
+            curl -sSL -o "libs/$(basename "$url")" "$url"
+          }
+
+          fetch malilib 26.3 malilib
+          fetch modmenu 26.3 modmenu
+          ls -la libs
 
       - name: Build
         run: |
