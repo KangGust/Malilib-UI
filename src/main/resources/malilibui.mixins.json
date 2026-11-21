@@ -1,0 +1,27 @@
+{
+	"required": true,
+	"package": "kang.malilib.ui.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"GuiSetScreenMixin",
+		"ButtonGenericMixin",
+		"WidgetSliderMixin",
+		"WidgetDropDownListMixin",
+		"GuiTextFieldMixin",
+		"GuiScrollBarMixin",
+		"RenderUtilsMixin",
+		"WidgetSearchBarMixin",
+		"WidgetBaseMixin",
+		"WidgetConfigOptionMixin",
+		"SliderToggleMixin",
+		"accessor.GuiBaseAccessor",
+		"accessor.GuiListBaseAccessor",
+		"accessor.GuiConfigsBaseAccessor",
+		"accessor.ButtonBaseAccessor",
+		"accessor.WidgetSearchBarAccessor",
+		"accessor.WidgetListBaseAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

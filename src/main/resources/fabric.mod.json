@@ -1,0 +1,36 @@
+{
+	"schemaVersion": 1,
+	"id": "malilib-ui",
+	"version": "${version}",
+	"name": "Malilib UI",
+	"description": "Modern, semi-transparent configuration interface for masa's mods (MaLiLib).",
+	"authors": [
+		"KangGust"
+	],
+	"license": "AGPL-3.0",
+	"icon": "assets/malilib-ui/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"kang.malilib.ui.MalilibUI"
+		],
+		"modmenu": [
+			"kang.malilib.ui.compat.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		{
+			"config": "malilibui.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"malilib": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}
