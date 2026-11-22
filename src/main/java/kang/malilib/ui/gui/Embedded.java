@@ -6,6 +6,7 @@ import fi.dy.masa.malilib.gui.GuiScrollBar;
 import fi.dy.masa.malilib.gui.GuiTextFieldGeneric;
 import fi.dy.masa.malilib.gui.widgets.WidgetListConfigOptions;
 import fi.dy.masa.malilib.render.GuiContext;
+import kang.malilib.ui.config.UiConfigs;
 import kang.malilib.ui.config.UiStore;
 import kang.malilib.ui.core.ConfigIndex;
 import kang.malilib.ui.core.ModEntry;
@@ -32,6 +33,8 @@ public final class Embedded {
     private int w;
     private int h;
     private float dragAccum;
+    private float pixelOffset;
+    private double wheelAccum;
 
     public ModEntry mod() {
         return this.mod;
@@ -90,10 +93,12 @@ public final class Embedded {
 
     /** 按内容区尺寸重建原界面与列表，并接管列表的坐标 */
     public void rebuild() {
+        int keepScroll = this.list == null ? -1 : this.list.getScrollbar().getValue();
         this.list = null;
         if (!(this.screen instanceof GuiConfigsBase configs) || this.w <= 60 || this.h <= 60) {
             return;
         }
+        RowScope.currentModId = this.mod == null ? "" : this.mod.modId;
         configs.width = this.w + 20;
         configs.height = this.h + 80;
         configs.initGui();
@@ -102,13 +107,18 @@ public final class Embedded {
         access.malilibui$setConfigWidth(Math.max(84, Math.min(access.malilibui$getConfigWidth(), proportional)));
         WidgetListConfigOptions created = access.malilibui$createListWidget(this.x, this.y);
         created.setSize(this.w, this.h);
-        ((WidgetListBaseAccessor) created).malilibui$setEntryHeight(26);
+        ((WidgetListBaseAccessor) created).malilibui$setEntryHeight(
+                UiConfigs.General.ENABLED.getBooleanValue() ? 26 : 22);
         created.initGui();
         if (created.getSearchBarWidget() != null) {
             created.getSearchBarWidget().setSearchOpen(true);
             created.refreshEntries();
         }
         this.list = created;
+        if (keepScroll > 0) {
+            GuiScrollBar bar = created.getScrollbar();
+            bar.setValue(Math.min(keepScroll, bar.getMaxValue()));
+        }
         this.dragAccum = 0f;
         this.refreshTabLabel();
         this.applyFilter();
@@ -168,18 +178,29 @@ public final class Embedded {
             return;
         }
         GuiContext ctx = GuiContext.fromGuiGraphics(g);
+        PinHits.clear();
         this.list.drawContents(ctx, mouseX, mouseY, partialTicks);
         GuiBaseAccessor access = (GuiBaseAccessor) this.list;
         access.malilibui$drawHoveredWidget(ctx, mouseX, mouseY);
         access.malilibui$drawButtonHoverTexts(ctx, mouseX, mouseY, partialTicks);
     }
 
+    private MouseButtonEvent adjust(MouseButtonEvent click) {
+        return click;
+    }
+
     public boolean mouseClicked(MouseButtonEvent click, boolean doubleClick) {
-        return this.list != null && this.list.onMouseClicked(click, doubleClick);
+        String config = PinHits.hitAt(click.x(), click.y());
+        if (config != null && !RowScope.currentModId.isEmpty()) {
+            UiStore.get().togglePin(RowScope.currentModId, config);
+            this.rebuild();
+            return true;
+        }
+        return this.list != null && this.list.onMouseClicked(this.adjust(click), doubleClick);
     }
 
     public boolean mouseReleased(MouseButtonEvent click) {
-        boolean handled = this.list != null && this.list.onMouseReleased(click);
+        boolean handled = this.list != null && this.list.onMouseReleased(this.adjust(click));
         this.flush();
         return handled;
     }
@@ -196,8 +217,15 @@ public final class Embedded {
         if (mouseX < this.x || mouseX > this.x + this.w || mouseY < this.y || mouseY > this.y + this.h) {
             return false;
         }
-        GuiScrollBar bar = this.list.getScrollbar();
-        bar.setValue(bar.getValue() - (int) Math.signum(vertical));
+        this.wheelAccum += vertical * ROW_HEIGHT;
+        int step = (int) (this.wheelAccum / ROW_HEIGHT);
+        if (step != 0) {
+            this.wheelAccum -= step * ROW_HEIGHT;
+            GuiScrollBar bar = this.list.getScrollbar();
+            bar.setValue(bar.getValue() - step);
+        }
+        this.pixelOffset = 0f;
+        this.wheelAccum = 0;
         return true;
     }
 
@@ -210,6 +238,7 @@ public final class Embedded {
     }
 
     /** 触屏/鼠标按住拖动滚动（换算成行数，和滚轮走同一套滚动条） */
+    /** 右侧拖动：按整行滚动（与 malilib 原生一致，不做像素级平移） */
     public void dragScroll(double deltaY) {
         if (this.list == null) {
             return;
@@ -224,6 +253,21 @@ public final class Embedded {
     }
 
     /** 提交未保存的修改（切换功能页 / 切换模组 / 关闭界面时调用） */
+    /** 到顶/到底后不再保留视觉偏移，避免越界拖动与松手回弹 */
+    private float clampedOffset(float offset) {
+        if (this.list == null) {
+            return 0f;
+        }
+        GuiScrollBar bar = this.list.getScrollbar();
+        if (offset > 0 && bar.getValue() <= 0) {
+            return 0f;
+        }
+        if (offset < 0 && bar.getValue() >= bar.getMaxValue()) {
+            return 0f;
+        }
+        return offset;
+    }
+
     public void flush() {
         if (this.list == null || !(this.screen instanceof GuiConfigsBase)) {
             return;
@@ -233,6 +277,10 @@ public final class Embedded {
             ((GuiConfigsBaseAccessor) this.screen).malilibui$onSettingsChanged();
             this.list.clearConfigsModifiedFlag();
         }
+    }
+
+    public boolean isEmptyList() {
+        return this.list != null && this.list.getCurrentEntries().isEmpty();
     }
 
     public int listX() {

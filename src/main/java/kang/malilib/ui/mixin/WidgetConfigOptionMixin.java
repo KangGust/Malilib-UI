@@ -17,11 +17,15 @@ public class WidgetConfigOptionMixin {
 
     @ModifyVariable(method = "addConfigOption", at = @At("HEAD"), argsOnly = true, index = 3, require = 0)
     private int malilibui$padLabelColumn(int labelWidth) {
+        if (!kang.malilib.ui.gui.RowScope.full()) {
+            return labelWidth;
+        }
         WidgetConfigOption self = (WidgetConfigOption) (Object) this;
         int rowWidth = self.getWidth();
         int leftover = Math.max(0, rowWidth - labelWidth);
         int gap = Math.round(rowWidth * GAP_RATIO);
-        gap = Math.max(6, Math.min(gap, leftover / 2));
+        // 上限收紧：先保证控件有足够宽度，再谈间距
+        gap = Math.max(4, Math.min(gap, leftover / 3));
         return labelWidth + gap;
     }
 }

@@ -19,6 +19,7 @@ public class GuiSetScreenMixin {
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true, require = 0)
     private void malilibui$replaceConfigScreen(Screen screen, CallbackInfo ci) {
         if (!(screen instanceof GuiConfigsBase configs)
+                || ConfigIndex.bypassReplace
                 || ConfigIndex.navigationSuppressed()
                 || !UiConfigs.General.ENABLED.getBooleanValue()) {
             return;

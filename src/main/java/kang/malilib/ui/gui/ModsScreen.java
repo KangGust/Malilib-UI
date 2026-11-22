@@ -42,6 +42,7 @@ public class ModsScreen extends Screen {
     private final Screen parent;
     private final Embedded embedded = new Embedded();
     private final List<Row> rows = new ArrayList<>();
+    private final java.util.Map<String, Float> rowAnim = new java.util.HashMap<>();
 
     private ModEntry selected;
     private float scroll;
@@ -81,6 +82,8 @@ public class ModsScreen extends Screen {
     private int scopeW = 84;
     private int gearX;
     private int headerCardH = 24;
+    private int stripH;
+    private final List<Object[]> stripHits = new ArrayList<>();
 
     private static final class Row {
         final int kind;
@@ -150,6 +153,7 @@ public class ModsScreen extends Screen {
             this.searchBox.setMaxLength(80);
             this.searchBox.setHint(Component.literal("Search..."));
         }
+        kang.malilib.ui.gui.RowScope.setActive(true);
         this.layout();
         this.searchBox.setFocused(true);
         ConfigIndex.rebuildHandler = () -> {
@@ -180,9 +184,12 @@ public class ModsScreen extends Screen {
 
         int rightX = this.leftX + this.leftW + PAD;
         this.listX = rightX + 6;
-        this.listY = this.leftY + HEADER_H;
+        this.stripH = this.pinnedStripHeight();
+        this.listY = this.leftY + HEADER_H + this.stripH;
         this.listW = Math.max(80, this.width - this.listX - PAD - 6);
-        this.listH = Math.max(60, this.leftH - HEADER_H - 6);
+        this.listH = Math.max(60, this.leftH - HEADER_H - 6 - this.stripH);
+        int rowH = UiConfigs.General.ENABLED.getBooleanValue() ? 26 : 22;
+        this.listH -= this.listH % rowH;
         this.headerCardH = HEADER_H - 6;
         this.gearX = this.width - PAD - 22;
         this.searchX = this.listX - 6;
@@ -231,22 +238,6 @@ public class ModsScreen extends Screen {
             return;
         }
 
-        if (!store.pins.isEmpty()) {
-            y = this.addSection(y, Text.of("malilib-ui.section.pins"));
-            for (UiStore.Ref ref : store.pins) {
-                IConfigBase config = index.find(ref.mod, ref.config);
-                if (config != null) {
-                    y = this.add(y, new Row(K_PIN, config.getConfigGuiDisplayName(), "", null, null, ref, null),
-                            this.rowH(PIN_H, 20));
-                }
-            }
-        }
-        if (!store.groups.isEmpty()) {
-            y = this.addSection(y, Text.of("malilib-ui.section.groups"));
-            for (UiStore.Group group : store.groups) {
-                y = this.add(y, new Row(K_GROUP, group.name, "", null, null, null, group), this.rowH(GROUP_H, 20));
-            }
-        }
         y = this.addSection(y, Text.of("malilib-ui.section.mods"));
         for (ModEntry mod : index.mods()) {
             y = this.add(y, new Row(K_MOD, mod.name, mod.version, mod, null, null, null), this.rowH(MOD_H, 30));
@@ -301,7 +292,12 @@ public class ModsScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+        int wantStrip = this.pinnedStripHeight();
+        if (wantStrip != this.stripH) {
+            this.layout();
+        }
         this.buildRows();
+        RowScope.currentModId = this.embedded.mod() == null ? "" : this.embedded.mod().modId;
         if (this.lastSidebar != Theme.sidebarWidth() || this.lastHeight != this.height) {
             this.lastSidebar = Theme.sidebarWidth();
             this.lastHeight = this.height;
@@ -323,15 +319,146 @@ public class ModsScreen extends Screen {
 
         this.drawSidebar(g, mouseX, mouseY);
         this.drawContentHeader(g, rightX, rightW, mouseX, mouseY);
+        this.drawPinnedStrip(g, rightX, rightW, mouseX, mouseY);
 
+        // 列表内容区底色（容器接管第一层：只画底，不动布局与坐标）
+        if (UiConfigs.General.ENABLED.getBooleanValue()) {
+            Draw.roundRect(g, this.listX - 4, this.listY - 4, this.listW + 8, this.listH + 8,
+                    Math.max(2, Theme.radius() - 2), Theme.alpha(0xFF000000, 0.10f));
+        }
         Draw.scissor(g, this.listX - 2, this.listY - 2, this.listW + 4, this.listH + 4);
         this.embedded.render(g, mouseX, mouseY, partialTicks);
         g.disableScissor();
+        if (UiConfigs.General.ENABLED.getBooleanValue() && this.embedded.isEmptyList()) {
+            Draw.textCentered(g, Text.of("malilib-ui.list.empty"),
+                    this.listX + this.listW / 2, this.listY + this.listH / 2 - 4, Theme.textOff());
+        }
         if (this.modMenu != null) {
             this.modMenu.drawPopup(g, mouseX, mouseY);
         }
         if (this.scope != null) {
             this.scope.drawPopup(g, mouseX, mouseY);
+        }
+    }
+
+    /** 当前模组在本功能页里的收藏项 */
+    private List<fi.dy.masa.malilib.config.IConfigBase> stripConfigs() {
+        List<fi.dy.masa.malilib.config.IConfigBase> list = new ArrayList<>();
+        int mode = UiConfigs.General.PIN_MODE.getIntegerValue();
+        if (mode == 0 || !UiConfigs.General.PIN_STRIP.getBooleanValue() || this.embedded.mod() == null) {
+            return list;
+        }
+        for (UiStore.Ref ref : UiStore.get().pins) {
+            if (!ref.mod.equals(this.embedded.mod().modId)) {
+                continue;
+            }
+            fi.dy.masa.malilib.config.IConfigBase config = ConfigIndex.get().find(ref.mod, ref.config);
+            if (config != null) {
+                list.add(config);
+            }
+        }
+        return list;
+    }
+
+    private static final int STRIP_ROW_H = 26;
+
+    /** 按可用宽度贪心分行，保证所有收藏项都显示且不留大空 */
+    private int pinnedStripRows() {
+        int rows = 0;
+        int used = 0;
+        int limit = Math.max(80, this.listW - 24);
+        for (fi.dy.masa.malilib.config.IConfigBase config : this.stripConfigs()) {
+            int w = this.stripChipWidth(config) + this.stripChipHeight() + 7;
+            if (used > 0 && used + w > limit) {
+                rows++;
+                used = 0;
+            }
+            used += w;
+        }
+        return used > 0 ? rows + 1 : 0;
+    }
+
+    private int stripChipHeight() {
+        return STRIP_ROW_H - 10;
+    }
+
+    private int stripChipWidth(fi.dy.masa.malilib.config.IConfigBase config) {
+        boolean isBool = config instanceof fi.dy.masa.malilib.config.IConfigBoolean;
+        String label = Draw.trim(config.getConfigGuiDisplayName(), 150);
+        if (isBool) {
+            return Math.max(96, Draw.width(label) + 56);
+        }
+        String value = Draw.trim(Actions.displayValue(config), 80);
+        return Math.max(120, Draw.width(label) + Draw.width(value) + 38);
+    }
+
+    private int pinnedStripHeight() {
+        return this.pinnedStripRows() * STRIP_ROW_H;
+    }
+
+    private void drawPinnedStrip(GuiGraphicsExtractor g, int rightX, int rightW, int mouseX, int mouseY) {
+        this.stripHits.clear();
+        if (this.stripH == 0) {
+            return;
+        }
+        int baseY = this.listY - this.stripH;
+        Draw.roundRect(g, rightX + 4, baseY, rightW - 12, this.stripH - 2, 6, Theme.surface());
+
+        int limit = rightX + rightW - 14;
+        int rowY = baseY + 2;
+        int x = rightX + 10;
+        boolean firstInRow = true;
+        boolean starHover = this.hover(mouseX, mouseY, x - 2, rowY + 2, 16, STRIP_ROW_H - 6);
+        Draw.roundRect(g, x - 2, rowY + 2, 16, STRIP_ROW_H - 6, 5,
+                starHover ? Theme.surfaceHigh() : 0);
+        Icons.icon(g, "star-filled", x, rowY + (STRIP_ROW_H - 12) / 2, 10,
+                starHover ? Theme.accent() : Theme.accentSoft(0xC0));
+        this.stripHits.add(new Object[]{x - 2, rowY + 2, 16, STRIP_ROW_H - 6, "unpinAll"});
+        x += 18;
+
+        for (fi.dy.masa.malilib.config.IConfigBase config : this.stripConfigs()) {
+            boolean isBool = config instanceof fi.dy.masa.malilib.config.IConfigBoolean;
+            int chipH = this.stripChipHeight();
+            int w = this.stripChipWidth(config);
+            int total = w + chipH + 7;
+            if (!firstInRow && x + total > limit) {
+                rowY += STRIP_ROW_H;
+                x = rightX + 10;
+                firstInRow = true;
+            }
+            firstInRow = false;
+
+            String label = Draw.trim(config.getConfigGuiDisplayName(), 150);
+            boolean hovered = this.hover(mouseX, mouseY, x, rowY + 3, w, chipH);
+            Draw.roundRect(g, x, rowY + 3, w, chipH, 5,
+                    hovered ? Theme.surfaceHigh() : Theme.accentSoft(0x22));
+            boolean chipStarHover = this.hover(mouseX, mouseY, x + 1, rowY + 4, 14, chipH - 2);
+            Icons.icon(g, "star-filled", x + 3, rowY + 3 + (chipH - 9) / 2, 9,
+                    chipStarHover ? 0xFFFFFFFF : Theme.accent());
+            this.stripHits.add(new Object[]{x + 1, rowY + 4, 14, chipH - 2, "unpin:" + config.getName()});
+            Draw.text(g, label, x + 19, rowY + 3 + (chipH - 8) / 2,
+                    Actions.isOn(config) ? Theme.text() : Theme.textDim());
+            if (isBool) {
+                boolean on = Actions.isOn(config);
+                int tx = x + w - 25;
+                Draw.roundRect(g, tx, rowY + 3 + (chipH - 10) / 2, 18, 10, 5,
+                        on ? Theme.accent() : Theme.alpha(0xFFFFFFFF, 0.18f));
+                Draw.dot(g, on ? tx + 13 : tx + 5, rowY + 3 + chipH / 2, 8,
+                        on ? 0xFFFFFFFF : Theme.textOff());
+            } else {
+                String value = Draw.trim(Actions.displayValue(config), 80);
+                Draw.text(g, value, x + w - Draw.width(value) - 7, rowY + 3 + (chipH - 8) / 2, Theme.textOff());
+            }
+            this.stripHits.add(new Object[]{x, rowY + 3, w, chipH, config});
+            x += w + 3;
+
+            boolean bHover = this.hover(mouseX, mouseY, x, rowY + 3, chipH, chipH);
+            Draw.roundRect(g, x, rowY + 3, chipH, chipH, 5,
+                    bHover ? Theme.surfaceHigh() : Theme.accentSoft(0x18));
+            Icons.icon(g, "search", x + (chipH - 12) / 2, rowY + 3 + (chipH - 12) / 2, 12,
+                    bHover ? Theme.accent() : Theme.textDim());
+            this.stripHits.add(new Object[]{x, rowY + 3, chipH, chipH, "locate:" + config.getName()});
+            x += chipH + 4;
         }
     }
 
@@ -385,6 +512,16 @@ public class ModsScreen extends Screen {
         Draw.scissor(g, this.rowsX - 2, this.rowsY, this.rowsW + 4, this.rowsH);
         for (Row row : this.rows) {
             int y = y0 + row.y;
+            if (row.kind == K_MOD && row.mod != null && row.mod != this.dragMod) {
+                Float cur = this.rowAnim.get(row.mod.modId);
+                float target = row.y;
+                float value = cur == null ? target : cur + (target - cur) * 0.35f;
+                if (Math.abs(target - value) < 0.4f) {
+                    value = target;
+                }
+                this.rowAnim.put(row.mod.modId, value);
+                y = y0 + Math.round(value);
+            }
             if (y + row.h < this.rowsY - 4 || y > this.rowsY + this.rowsH + 4) {
                 continue;
             }
@@ -393,16 +530,6 @@ public class ModsScreen extends Screen {
         g.disableScissor();
         this.drawScrollbar(g, this.rowsX + this.rowsW + 4, this.rowsY, this.rowsH, mouseX, mouseY);
 
-        int footY = this.leftY + this.leftH - FOOTER_H;
-        int btnY = footY + 3;
-        int btnH = FOOTER_H - 8;
-        boolean footHover = this.hover(mouseX, mouseY, this.rowsX, btnY, this.rowsW, btnH);
-        Draw.roundRect(g, this.rowsX, btnY, this.rowsW, btnH, 6, footHover ? Theme.surfaceHigh() : Theme.surface());
-        String footText = Text.of("malilib-ui.button.newGroup");
-        int footTextW = Draw.width(footText);
-        int footStart = this.rowsX + (this.rowsW - footTextW - 16) / 2;
-        Icons.icon(g, "plus", footStart, btnY + (btnH - 10) / 2, 10, footHover ? Theme.accent() : Theme.textDim());
-        Draw.text(g, footText, footStart + 14, btnY + (btnH - 8) / 2, Theme.textDim());
     }
 
     private void drawRow(GuiGraphicsExtractor g, Row row, int y, int mouseX, int mouseY) {
@@ -431,6 +558,16 @@ public class ModsScreen extends Screen {
                 Draw.text(g, Draw.trim(row.label, textW), textX, y + 7, active ? Theme.text() : Theme.textDim());
                 if (!row.sub.isEmpty()) {
                     Draw.text(g, Draw.trim(row.sub, textW), textX, y + 19, Theme.textOff());
+                }
+                int handleX = x + w - 18;
+                int handleY = y + row.h / 2 - 5;
+                int handleColor = this.dragMod == row.mod ? Theme.accent() : Theme.alpha(0xFFFFFFFF, 0.30f);
+                if (Icons.tinted("grip-vertical", 0xFFFFFFFF) != null) {
+                    Icons.icon(g, "grip-vertical", handleX, handleY, 10, handleColor);
+                } else {
+                    for (int i = 0; i < 3; i++) {
+                        Draw.dot(g, handleX + 5, handleY + 1 + i * 4, 2, handleColor);
+                    }
                 }
             }
             case K_TAB -> {
@@ -522,14 +659,8 @@ public class ModsScreen extends Screen {
             int tx = rightX + 36 + Math.max(Draw.width(title), Draw.width(mod.version)) + 10;
             Draw.text(g, Draw.trim("· " + tab, rightW - (tx - rightX) - 40), tx, y + 6, Theme.textOff());
         }
-        int starW = 22;
-        int starX = rightX + rightW - starW - 8;
-        boolean starHover = this.hover(mouseX, mouseY, starX, y - 1, starW, 20);
-        Draw.roundRect(g, starX, y - 1, starW, 20, 5, starHover ? Theme.surfaceHigh() : Theme.surface());
-        Icons.iconCentered(g, "star", starX, y - 1, starW, 20, 12, starHover ? Theme.accent() : Theme.textOff());
-
         int switchW = 90;
-        int switchX = starX - switchW - 6;
+        int switchX = rightX + rightW - switchW - 8;
         if (this.modMenu != null) {
             this.modMenu.drawBox(g, switchX, y - 1, switchW, 20, mouseX, mouseY);
         }
@@ -634,9 +765,6 @@ public class ModsScreen extends Screen {
         }
         int rightX = this.listX - 6;
         int rightW = this.width - rightX - PAD;
-        if (this.hover(mx, my, rightX + rightW - 30, this.leftY + 5, 22, 20)) {
-            return this.openScreen(new PickerScreen(this, PickerScreen.Mode.PIN, this.embedded.mod()));
-        }
         int switchW = 90;
         int switchX = rightX + rightW - 30 - switchW - 6;
         if (this.modMenu != null && this.modMenu.mouseClicked(mx, my)) {
@@ -647,14 +775,10 @@ public class ModsScreen extends Screen {
             this.applyScope();
             return true;
         }
-        int footY = this.leftY + this.leftH - FOOTER_H;
-        if (this.hover(mx, my, this.rowsX, footY + 3, this.rowsW, FOOTER_H - 8)) {
-            return this.openScreen(new PickerScreen(this, PickerScreen.Mode.GROUP, this.embedded.mod()));
-        }
 
         if (this.hover(mx, my, this.rowsX, this.rowsY, this.rowsW + 8, this.rowsH)) {
             Row row = this.rowAt(mx, my);
-            if (row != null && row.kind == K_MOD && mx - this.rowsX < 30) {
+            if (row != null && row.kind == K_MOD && mx > this.rowsX + this.rowsW - 22) {
                 this.dragMod = row.mod;
                 this.pressY = my;
                 this.reorderMode = false;
@@ -666,6 +790,54 @@ public class ModsScreen extends Screen {
             this.dragMoved = false;
             this.beginDrag(my, 0);
             return true;
+        }
+        for (Object[] hit : this.stripHits) {
+            int hx = (Integer) hit[0];
+            int hy = (Integer) hit[1];
+            int hw = (Integer) hit[2];
+            int hh = (Integer) hit[3];
+            if (this.hover(mx, my, hx, hy, hw, hh)) {
+                Object target = hit[4];
+                if ("unpinAll".equals(target)) {
+                    List<UiStore.Ref> mine = new ArrayList<>();
+                    for (UiStore.Ref ref : UiStore.get().pins) {
+                        if (this.embedded.mod() != null && ref.mod.equals(this.embedded.mod().modId)) {
+                            mine.add(ref);
+                        }
+                    }
+                    UiStore.get().pins.removeAll(mine);
+                    UiStore.get().save();
+                    ConfigIndex.requestRebuild();
+                    return true;
+                }
+                if (target instanceof String key && key.startsWith("unpin:")) {
+                    String name = key.substring(6);
+                    if (this.embedded.mod() != null) {
+                        UiStore.Ref found = null;
+                        for (UiStore.Ref ref : UiStore.get().pins) {
+                            if (ref.mod.equals(this.embedded.mod().modId) && ref.config.equals(name)) {
+                                found = ref;
+                                break;
+                            }
+                        }
+                        if (found != null) {
+                            UiStore.get().pins.remove(found);
+                            UiStore.get().save();
+                            ConfigIndex.requestRebuild();
+                        }
+                    }
+                    return true;
+                }
+                if (target instanceof String key && key.startsWith("locate:")) {
+                    String name = key.substring(7);
+                    this.searchBox.setValue(name);
+                    this.embedded.setFilter(name);
+                } else {
+                    Actions.toggle((fi.dy.masa.malilib.config.IConfigBase) target);
+                    ConfigIndex.requestRebuild();
+                }
+                return true;
+            }
         }
         if (this.hover(mx, my, this.listX, this.listY, this.listW, this.listH)) {
             if (this.embedded.mouseClicked(click, doubleClick)) {
@@ -688,7 +860,7 @@ public class ModsScreen extends Screen {
         int w = this.rowsW;
         switch (row.kind) {
             case K_MOD -> {
-                if (mx - x < 30) {
+                if (mx > x + w - 22) {
                     this.dragMod = row.mod;
                     this.pressY = my;
                     this.reorderMode = false;
@@ -849,6 +1021,17 @@ public class ModsScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent input) {
+        if (input.key() == 41) {
+            if (this.embedded.keyPressed(input)) {
+                return true;
+            }
+            if (this.searchBox != null && this.searchFocused()) {
+                this.searchBox.setFocused(false);
+                return true;
+            }
+            this.onClose();
+            return true;
+        }
         if (this.searchFocused()) {
             if (this.searchBox != null && this.searchBox.keyPressed(input)) {
                 this.applyScope();
@@ -943,8 +1126,29 @@ public class ModsScreen extends Screen {
         return false;
     }
 
+    /** 关闭重绘时：把当前界面直接换成 malilib 原生配置界面 */
+    public void revertToVanilla() {
+        if (this.minecraft == null) {
+            return;
+        }
+        var screen = this.embedded.screen();
+        if (screen == null) {
+            this.onClose();
+            return;
+        }
+        this.embedded.flush();
+        RowScope.setActive(false);
+        ConfigIndex.bypassReplace = true;
+        try {
+            this.minecraft.gui.setScreen(screen);
+        } finally {
+            ConfigIndex.bypassReplace = false;
+        }
+    }
+
     @Override
     public void onClose() {
+        kang.malilib.ui.gui.RowScope.setActive(false);
         this.embedded.flush();
         if (this.minecraft != null) {
             this.minecraft.gui.setScreen(this.parent);

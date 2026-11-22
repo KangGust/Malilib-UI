@@ -122,12 +122,22 @@ public class SettingsScreen extends Screen {
         this.toggle(g, "malilib-ui.settings.compact", UiConfigs.General.COMPACT.getBooleanValue(),
                 () -> UiConfigs.General.COMPACT.setBooleanValue(!UiConfigs.General.COMPACT.getBooleanValue()));
         this.resetButton(g, this.cursorY - 22, mouseX, mouseY, UiConfigs.General.COMPACT);
+        this.toggle(g, "malilib-ui.settings.styleOther", UiConfigs.General.STYLE_OTHER.getBooleanValue(),
+                () -> UiConfigs.General.STYLE_OTHER.setBooleanValue(!UiConfigs.General.STYLE_OTHER.getBooleanValue()));
+        this.resetButton(g, this.cursorY - 22, mouseX, mouseY, UiConfigs.General.STYLE_OTHER);
 
         this.section(g, "malilib-ui.settings.sorting");
+        this.toggle(g, "malilib-ui.settings.pinStrip", UiConfigs.General.PIN_STRIP.getBooleanValue(),
+                () -> UiConfigs.General.PIN_STRIP.setBooleanValue(!UiConfigs.General.PIN_STRIP.getBooleanValue()));
+        this.resetButton(g, this.cursorY - 22, mouseX, mouseY, UiConfigs.General.PIN_STRIP);
         this.chip(g, "malilib-ui.settings.modSort",
                 Text.of("malilib-ui.settings.modSort." + UiConfigs.General.MOD_SORT.getOptionListValue().getStringValue()),
                 mouseX, mouseY, () -> this.cycle(UiConfigs.General.MOD_SORT));
         this.resetButton(g, this.cursorY - 22, mouseX, mouseY, UiConfigs.General.MOD_SORT);
+        this.chip(g, "malilib-ui.settings.pinMode",
+                Text.of("malilib-ui.pinMode." + UiConfigs.General.PIN_MODE.getIntegerValue()), mouseX, mouseY,
+                () -> UiConfigs.General.PIN_MODE.setIntegerValue((UiConfigs.General.PIN_MODE.getIntegerValue() + 1) % 3));
+        this.resetButton(g, this.cursorY - 22, mouseX, mouseY, UiConfigs.General.PIN_MODE);
         this.chip(g, "malilib-ui.settings.tabSort",
                 Text.of("malilib-ui.settings.tabSort." + UiConfigs.General.TAB_SORT.getOptionListValue().getStringValue()),
                 mouseX, mouseY, () -> this.cycle(UiConfigs.General.TAB_SORT));

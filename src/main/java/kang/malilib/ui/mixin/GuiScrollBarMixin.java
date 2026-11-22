@@ -28,6 +28,7 @@ public abstract class GuiScrollBarMixin {
     private void malilibui$render(GuiContext ctx, int mouseX, int mouseY, float partialTicks, int x, int y,
             int width, int height, int totalHeight, CallbackInfo ci) {
         ci.cancel();
+        if (!kang.malilib.ui.gui.RowScope.styleAllowed()) { return; }
         GuiScrollBar self = (GuiScrollBar) (Object) this;
         if (totalHeight <= 0) {
             return;
@@ -40,7 +41,9 @@ public abstract class GuiScrollBarMixin {
         int barY = y + 1 + (max > 0 ? (int) ((float) self.getValue() / max * barTravel) : 0);
         boolean hovered = mouseX > x - 2 && mouseX < x + width + 2 && mouseY > barY && mouseY < barY + barHeight;
         this.malilibui$setMouseOver(hovered);
-        Draw.roundRect(ctx, x + 1, barY, Math.max(2, width - 2), barHeight, Math.max(1, Math.min(3, width / 2 - 1)),
+        Draw.roundRect(ctx, x + 2, y + 2, Math.max(2, width - 4), height - 4,
+                Math.max(1, Math.min(3, width / 2 - 2)), Theme.alpha(0xFFFFFFFF, 0.05f));
+        Draw.roundRect(ctx, x + 2, barY, Math.max(2, width - 4), barHeight, Math.max(1, Math.min(3, width / 2 - 2)),
                 hovered || this.malilibui$isDragging() ? Theme.accent() : Theme.alpha(0xFFFFFFFF, 0.2f));
         this.malilibui$handleDrag(mouseY, barTravel);
     }

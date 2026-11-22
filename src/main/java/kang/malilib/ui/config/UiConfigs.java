@@ -77,13 +77,17 @@ public class UiConfigs implements IConfigHandler {
         public static final ConfigBoolean SHOW_ICONS = new ConfigBoolean("showIcons", true).apply(PREFIX);
         public static final ConfigBoolean BLUR = new ConfigBoolean("blur", true).apply(PREFIX);
         public static final ConfigBoolean COMPACT = new ConfigBoolean("compact", false).apply(PREFIX);
+        public static final ConfigBoolean PIN_STRIP = new ConfigBoolean("pinStrip", true).apply(PREFIX);
+        public static final ConfigInteger PIN_MODE = new ConfigInteger("pinMode", 2, 0, 2).apply(PREFIX);
+        public static final ConfigBoolean STYLE_OTHER = new ConfigBoolean("styleOtherScreens", false).apply(PREFIX);
         public static final ConfigInteger SIDEBAR_WIDTH = new ConfigInteger("sidebarWidth", 196, 140, 320, true).apply(PREFIX);
         public static final ConfigInteger CORNER_RADIUS = new ConfigInteger("cornerRadius", 8, 0, 16, true).apply(PREFIX);
         public static final ConfigOptionList MOD_SORT = new ConfigOptionList("modSort", SortMode.DEFAULT).apply(PREFIX);
         public static final ConfigOptionList TAB_SORT = new ConfigOptionList("tabSort", SortMode.DEFAULT).apply(PREFIX);
 
         public static final List<IConfigBase> OPTIONS = List.of(
-                ENABLED, SHOW_ICONS, BLUR, COMPACT, SIDEBAR_WIDTH, CORNER_RADIUS, MOD_SORT, TAB_SORT);
+                ENABLED, SHOW_ICONS, BLUR, COMPACT, PIN_STRIP, PIN_MODE, STYLE_OTHER,
+                SIDEBAR_WIDTH, CORNER_RADIUS, MOD_SORT, TAB_SORT);
     }
 
     public static class Colors {

@@ -35,6 +35,9 @@ public final class ConfigIndex {
     /** 外部（例如 malilib 的滑杆/输入框切换按钮）改动了配置后，请求重建当前列表 */
     public static Runnable rebuildHandler;
 
+    /** 为 true 时 setScreen 不做替换（用于主动切回 malilib 原生界面） */
+    public static boolean bypassReplace;
+
     public static void requestRebuild() {
         if (rebuildHandler != null) {
             rebuildHandler.run();
