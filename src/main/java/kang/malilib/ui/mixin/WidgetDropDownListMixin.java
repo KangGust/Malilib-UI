@@ -24,7 +24,7 @@ public abstract class WidgetDropDownListMixin {
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true, require = 0)
     private void malilibui$render(GuiContext ctx, int mouseX, int mouseY, boolean selected, CallbackInfo ci) {
-        if (this.malilibui$isOpen()) {
+        if (!kang.malilib.ui.gui.RowScope.styleAllowed() || this.malilibui$isOpen()) {
             return;
         }
         ci.cancel();

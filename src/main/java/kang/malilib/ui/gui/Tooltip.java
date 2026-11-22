@@ -45,7 +45,7 @@ public final class Tooltip {
         }
 
         Draw.shadow(ctx, x, y, w, h, 6);
-        Draw.roundRect(ctx, x, y, w, h, 6, Theme.alpha(Theme.panel(), 1.0f));
+        Draw.roundRect(ctx, x, y, w, h, 6, Theme.withAlpha(Theme.baseRgb(), 238));
         Draw.roundRect(ctx, x + 3, y + PAD, 2, h - PAD * 2, 1, Theme.accent());
 
         int textY = y + PAD - 1;

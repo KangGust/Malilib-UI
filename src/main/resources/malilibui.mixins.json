@@ -11,17 +11,23 @@
 		"GuiScrollBarMixin",
 		"RenderUtilsMixin",
 		"WidgetSearchBarMixin",
-		"WidgetBaseMixin",
+		"WidgetSearchBarConfigsMixin",
 		"WidgetConfigOptionMixin",
+		"WidgetConfigOptionRenderMixin",
+		"WidgetLabelMixin",
+		"WidgetListBaseMixin",
+		"WidgetListConfigOptionsMixin",
 		"SliderToggleMixin",
 		"accessor.GuiBaseAccessor",
 		"accessor.GuiListBaseAccessor",
 		"accessor.GuiConfigsBaseAccessor",
 		"accessor.ButtonBaseAccessor",
 		"accessor.WidgetSearchBarAccessor",
-		"accessor.WidgetListBaseAccessor"
+		"accessor.WidgetListBaseAccessor",
+		"accessor.WidgetConfigOptionAccessor",
+		"accessor.WidgetContainerAccessor"
 	],
 	"injectors": {
-		"defaultRequire": 1
+		"defaultRequire": 0
 	}
 }

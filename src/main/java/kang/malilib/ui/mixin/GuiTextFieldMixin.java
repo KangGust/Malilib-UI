@@ -17,7 +17,8 @@ public class GuiTextFieldMixin {
     @Inject(method = "extractWidgetRenderState", at = @At("HEAD"), cancellable = true, require = 0)
     private void malilibui$render(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         EditBox self = (EditBox) (Object) this;
-        if (!(self instanceof GuiTextFieldGeneric) && !(self instanceof kang.malilib.ui.gui.UiEditBox)) {
+        if (!kang.malilib.ui.gui.RowScope.styleAllowed()
+                || (!(self instanceof GuiTextFieldGeneric) && !(self instanceof kang.malilib.ui.gui.UiEditBox))) {
             return;
         }
         int x = self.getX();

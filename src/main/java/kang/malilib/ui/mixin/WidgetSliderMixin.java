@@ -34,6 +34,7 @@ public abstract class WidgetSliderMixin {
     @Inject(method = "render", at = @At("HEAD"), cancellable = true, require = 0)
     private void malilibui$render(GuiContext ctx, int mouseX, int mouseY, boolean selected, CallbackInfo ci) {
         ci.cancel();
+        if (!kang.malilib.ui.gui.RowScope.styleAllowed()) { return; }
         WidgetSlider self = (WidgetSlider) (Object) this;
 
         if (this.malilibui$isDragging() && mouseX != this.malilibui$getLastMouseX()) {

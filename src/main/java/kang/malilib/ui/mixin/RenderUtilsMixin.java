@@ -9,15 +9,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.RenderUtils;
+import kang.malilib.ui.gui.RowScope;
 import kang.malilib.ui.gui.Tooltip;
 import net.minecraft.network.chat.Component;
 
-/** 接管 malilib 的悬停提示框：原版黑框换成圆角卡片 */
+/** 接管 malilib 的悬停提示框（仅在我们的界面生效） */
 @Mixin(RenderUtils.class)
 public class RenderUtilsMixin {
     @Inject(method = "drawHoverText(Lfi/dy/masa/malilib/render/GuiContext;IILjava/util/List;)V",
             at = @At("HEAD"), cancellable = true, require = 0)
     private static void malilibui$hoverTextList(GuiContext ctx, int x, int y, List<String> lines, CallbackInfo ci) {
+        if (!RowScope.styleAllowed()) {
+            return;
+        }
         ci.cancel();
         Tooltip.draw(ctx, x, y, lines);
     }
@@ -25,6 +29,9 @@ public class RenderUtilsMixin {
     @Inject(method = "drawHoverText(Lfi/dy/masa/malilib/render/GuiContext;IILnet/minecraft/network/chat/Component;)V",
             at = @At("HEAD"), cancellable = true, require = 0)
     private static void malilibui$hoverTextComponent(GuiContext ctx, int x, int y, Component text, CallbackInfo ci) {
+        if (!RowScope.styleAllowed()) {
+            return;
+        }
         ci.cancel();
         Tooltip.draw(ctx, x, y, List.of(text.getString()));
     }
